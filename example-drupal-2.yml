@@ -1,0 +1,39 @@
+version: "3.1"
+services:
+
+  drupal:
+    image: drupal:latest
+    ports:
+      - 8080:80
+    networks:
+      - drupalnetwork
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+  postgres:
+    image: postgres:9.4
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    secrets:
+      - psql-pw
+    networks:
+      - drupalnetwork
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/psql-pw
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  drupalnetwork:
+
+volumes:
+  db-data:
+
+secrets:
+  psql-pw:
+    external:true
