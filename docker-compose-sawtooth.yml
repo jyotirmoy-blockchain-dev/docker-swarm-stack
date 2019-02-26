@@ -6,7 +6,7 @@ services:
     image: hyperledger/sawtooth-settings-tp:1.0
     container_name: sawtooth-settings-tp-default
     deploy:
-      replicas: 1
+      replicas: 2
       placement:
         constraints: [node.role == manager]
       update_config:
@@ -18,16 +18,39 @@ services:
       - validator
     entrypoint: settings-tp -vv -C tcp://validator:4004
     
-    
   validator:
     image: hyperledger/sawtooth-validator:1.0
-    container_name: sawtooth-validator-default
-    expose:
-      - 4004
+    container_name: sawtooth-validator-1
     ports:
       - "4004:4004"
     deploy:
-      replicas: 1
+      replicas: 2
+      placement:
+        constraints: [node.role == manager]
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    # start the validator with an empty genesis batch
+    entrypoint: "bash -c \"\
+        sawadm keygen && \
+        sawtooth keygen my_key && \
+        sawset genesis -k /root/.sawtooth/keys/my_key.priv && \
+        sawadm genesis config-genesis.batch && \
+        sawtooth-validator -vv \
+          --endpoint tcp://validator:8800 \
+          --bind component:tcp://eth0:4004 \
+          --bind network:tcp://eth0:8800 \
+        \""
+
+  validator:
+    image: hyperledger/sawtooth-validator:1.0
+    container_name: sawtooth-validator-2
+    ports:
+      - "4004:4004"
+    deploy:
+      replicas: 2
       placement:
         constraints: [node.role == manager]
       update_config:
