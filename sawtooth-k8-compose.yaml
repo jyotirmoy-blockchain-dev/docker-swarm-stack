@@ -1,0 +1,437 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: shell
+  name: shell
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: shell
+    spec:
+      containers:
+      - args:
+        - bash
+        - -c
+        - |2
+
+            cd asset_client/ && npm run build && cd - &&
+            cd fish_client/ && npm run build && cd - &&
+            if [ ! -f /root/.sawtooth/keys/root.priv ]; then
+              sawtooth keygen &&
+              cd server/ &&
+              npm run init &&
+              npm run make-asset &&
+              npm run make-fish &&
+              npm run seed-sample-assets &&
+              npm run seed-sample-fish &&
+              cd -
+            fi;
+            tail -f /dev/null
+        env:
+        - name: DB_HOST
+          value: rethink
+        - name: SERVER
+          value: http://server:3000
+        - name: VALIDATOR_URL
+          value: tcp://validator:4004
+        - name: http_proxy
+        - name: https_proxy
+        - name: no_proxy
+          value: rest-api,server,eth0,validator,
+        image: supply-shell
+        name: supply-shell
+        resources: {}
+        volumeMounts:
+        - mountPath: /sawtooth-supply-chain
+          name: shell-tmpfs0
+        - mountPath: /sawtooth-supply-chain/asset_client/node_modules
+          name: shell-tmpfs1
+        - mountPath: /sawtooth-supply-chain/fish_client/node_modules
+          name: shell-tmpfs2
+        - mountPath: /sawtooth-supply-chain/server/node_modules
+          name: shell-tmpfs3
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs0
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs1
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs2
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs3
+status: {}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: processor
+  name: processor
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: processor
+    spec:
+      containers:
+      - command:
+        - bash
+        - -c
+        - |2
+
+            cargo build &&
+            supply-chain-tp -v -C tcp://validator:4004
+        env:
+        - name: http_proxy
+        - name: https_proxy
+        - name: no_proxy
+          value: rest-api,server,eth0,validator,
+        image: supply-tp
+        name: supply-tp
+        resources: {}
+        volumeMounts:
+        - mountPath: /sawtooth-supply-chain
+          name: processor-tmpfs0
+        - mountPath: /sawtooth-supply-chain/processor/target
+          name: processor-tmpfs1
+        - mountPath: /sawtooth-supply-chain/processor/src/messages
+          name: processor-tmpfs2
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: processor-tmpfs0
+      - emptyDir:
+          medium: Memory
+        name: processor-tmpfs1
+      - emptyDir:
+          medium: Memory
+        name: processor-tmpfs2
+status: {}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: server
+  name: server
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: server
+    spec:
+      containers:
+      - command:
+        - node
+        - index.js
+        env:
+        - name: DB_HOST
+          value: rethink
+        - name: VALIDATOR_URL
+          value: tcp://validator:4004
+        - name: http_proxy
+        - name: https_proxy
+        - name: no_proxy
+          value: rest-api,server,eth0,validator,
+        image: supply-server
+        name: supply-server
+        ports:
+        - containerPort: 3000
+        resources: {}
+        volumeMounts:
+        - mountPath: /sawtooth-supply-chain
+          name: server-tmpfs0
+        - mountPath: /sawtooth-supply-chain/server/node_modules
+          name: server-tmpfs1
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: server-tmpfs0
+      - emptyDir:
+          medium: Memory
+        name: server-tmpfs1
+status: {}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: ledger-sync
+  name: ledger-sync
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: ledger-sync
+    spec:
+      containers:
+      - env:
+        - name: DB_HOST
+          value: rethink
+        - name: VALIDATOR_URL
+          value: tcp://validator:4004
+        - name: http_proxy
+        - name: https_proxy
+        - name: no_proxy
+          value: rest-api,server,eth0,validator,
+        image: supply-ledger-sync
+        name: supply-ledger-sync
+        resources: {}
+        volumeMounts:
+        - mountPath: /sawtooth-supply-chain
+          name: ledger-sync-tmpfs0
+        - mountPath: /sawtooth-supply-chain/ledger_sync/node_modules
+          name: ledger-sync-tmpfs1
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: ledger-sync-tmpfs0
+      - emptyDir:
+          medium: Memory
+        name: ledger-sync-tmpfs1
+status: {}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: asset-client
+  name: asset-client
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: asset-client
+    spec:
+      containers:
+      - image: supply-asset-client
+        name: supply-asset-client
+        ports:
+        - containerPort: 80
+        resources: {}
+        volumeMounts:
+        - mountPath: /usr/local/apache2/htdocs/
+          name: asset-client-tmpfs0
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: asset-client-tmpfs0
+status: {}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: fish-client
+  name: fish-client
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: fish-client
+    spec:
+      containers:
+      - image: hyperledger/sawtooth-supply-chain-fish-client
+        name: supply-fish-client
+        ports:
+        - containerPort: 80
+        resources: {}
+        volumeMounts:
+        - mountPath: /usr/local/apache2/htdocs/
+          name: fish-client-tmpfs0
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: fish-client-tmpfs0
+status: {}
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: rethink
+  name: rethink
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: rethink
+    spec:
+      containers:
+      - env:
+        - name: http_proxy
+        - name: https_proxy
+        - name: no_proxy
+          value: rest-api,server,eth0,validator,
+        image: rethinkdb
+        name: supply-rethink
+        ports:
+        - containerPort: 8080
+        - containerPort: 28015
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: server
+  name: server
+spec:
+  ports:
+  - name: "8020"
+    port: 8020
+    targetPort: 3000
+  selector:
+    io.kompose.service: server
+status:
+  loadBalancer: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: asset-client
+  name: asset-client
+spec:
+  ports:
+  - name: "8021"
+    port: 8021
+    targetPort: 80
+  selector:
+    io.kompose.service: asset-client
+status:
+  loadBalancer: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: fish-client
+  name: fish-client
+spec:
+  ports:
+  - name: "8022"
+    port: 8022
+    targetPort: 80
+  selector:
+    io.kompose.service: fish-client
+status:
+  loadBalancer: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.16.0 (0c01309)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: rethink
+  name: rethink
+spec:
+  ports:
+  - name: "8023"
+    port: 8023
+    targetPort: 8080
+  - name: "28020"
+    port: 28020
+    targetPort: 28015
+  selector:
+    io.kompose.service: rethink
+status:
+  loadBalancer: {}

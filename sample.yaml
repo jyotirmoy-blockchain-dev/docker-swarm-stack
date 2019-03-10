@@ -1,0 +1,71 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: shell
+  name: shell
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: shell
+    spec:
+      containers:
+      - args:
+        - bash
+        - -c
+        - |2
+
+            cd asset_client/ && npm run build && cd - &&
+            cd fish_client/ && npm run build && cd - &&
+            if [ ! -f /root/.sawtooth/keys/root.priv ]; then
+              sawtooth keygen &&
+              cd server/ &&
+              npm run init &&
+              npm run make-asset &&
+              npm run make-fish &&
+              npm run seed-sample-assets &&
+              npm run seed-sample-fish &&
+              cd -
+            fi;
+            tail -f /dev/null
+        env:
+        - name: DB_HOST
+          value: rethink
+        - name: SERVER
+          value: http://server:3000
+        - name: VALIDATOR_URL
+          value: tcp://validator:4004
+        - name: http_proxy
+        - name: https_proxy
+        - name: no_proxy
+          value: rest-api,server,eth0,validator,
+        image: hyperledger/sawtooth-supply-chain-shell
+        name: supply-shell
+        resources: {}
+        volumeMounts:
+        - mountPath: /sawtooth-supply-chain
+          name: shell-tmpfs0
+        - mountPath: /sawtooth-supply-chain/asset_client/node_modules
+          name: shell-tmpfs1
+        - mountPath: /sawtooth-supply-chain/fish_client/node_modules
+          name: shell-tmpfs2
+        - mountPath: /sawtooth-supply-chain/server/node_modules
+          name: shell-tmpfs3
+      restartPolicy: Always
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs0
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs1
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs2
+      - emptyDir:
+          medium: Memory
+        name: shell-tmpfs3
+status: {}
